@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+    <link rel="stylesheet" href="/css/MMS.css">
+    <link rel="stylesheet" href="/js/mms.js">
+<head>
+    <title>JJM Vermira - Material Monitoring System</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .form-group { margin-bottom: 15px; }
+        label { display: inline-block; width: 200px; }
+        button { padding: 8px 15px; margin-right: 10px; }
+        .import-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .file-input { margin: 10px 0; }
+        .error-message { color: red; margin-top: 5px; }
+    </style>
+    <!-- Include SheetJS library for XLSX export/import -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <h1>JJM - Vermira - Material Monitoring System</h1>
+    
+    <h2>New Request</h2>
+    <form id="requestForm">
+        <div class="form-group">
+            <label for="mrsNumber">MRS #:</label>
+            <input type="text" id="mrsNumber" required>
+            <div id="mrsNumberError" class="error-message"></div>
+        </div>
+        <div class="form-group">
+            <label for="dateRequested">Date Requested:</label>
+            <input type="date" id="dateRequested" required>
+        </div>
+        <div class="form-group">
+            <label for="materials">Requested Materials:</label>
+            <input type="text" id="materials" required>
+        </div>
+        <div class="form-group">
+            <label for="purpose">Purpose of Materials:</label>
+            <input type="text" id="purpose" required>
+        </div>
+        <div class="form-group">
+            <label for="status">Status:</label>
+            <select id="status" required>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Ordered">Ordered</option>
+                <option value="Received">Received</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="commitmentDate">Purchasing Commitment Date:</label>
+            <input type="date" id="commitmentDate">
+        </div>
+        <button type="submit">Submit Request</button>
+    </form>
+    
+    <div class="import-section">
+        <h2>Import Requests from Excel</h2>
+        <input type="file" id="excelUpload" class="file-input" accept=".xlsx, .xls" />
+        <div>
+            <input type="checkbox" id="replaceData" name="replaceData">
+            <label for="replaceData">Replace all existing data</label>
+        </div>
+        <button id="importBtn">Import Excel File</button>
+        <p id="importStatus"></p>
+    </div>
+    
+    <h2>Current Requests</h2>
+    <div>
+        <button id="exportBtn">Export to Excel</button>
+    </div>
+    <table id="requestsTable">
+        <thead>
+            <tr>
+                <th>MRS #</th>
+                <th>Date Requested</th>
+                <th>Requested Materials</th>
+                <th>Purpose</th>
+                <th>Status</th>
+                <th>Commitment Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data will be inserted here -->
+        </tbody>
+    </table>
+
+    <script>
+        // Simple data storage (in a real app, this would be a database)
+        let requests = [];
+        
+        // Check if MRS # already exists
+        function isDuplicateMrsNumber(mrsNumber) {
+            return requests.some(request => request.mrsNumber === mrsNumber);
+        }
+        
+        // Form submission
+        document.getElementById('requestForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const mrsNumber = document.getElementById('mrsNumber').value;
+            const errorElement = document.getElementById('mrsNumberError');
+            
+            // Check for duplicate MRS #
+            if (isDuplicateMrsNumber(mrsNumber)) {
+                errorElement.textContent = "This MRS # already exists. Please use a unique number.";
+                return;
+            }
+            
+            // Clear any previous error
+            errorElement.textContent = "";
+            
+            const newRequest = {
+                mrsNumber: mrsNumber,
+                dateRequested: document.getElementById('dateRequested').value,
+                materials: document.getElementById('materials').value,
+                purpose: document.getElementById('purpose').value,
+                status: document.getElementById('status').value,
+                commitmentDate: document.getElementById('commitmentDate').value
+            };
+            
+            requests.push(newRequest);
+            updateTable();
+            this.reset();
+        });
+        
+        // Update table with current data
+        function updateTable() {
+            const tbody = document.querySelector('#requestsTable tbody');
+            tbody.innerHTML = '';
+            
+            requests.forEach((request, index) => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${request.mrsNumber}</td>
+                    <td>${request.dateRequested}</td>
+                    <td>${request.materials}</td>
+                    <td>${request.purpose}</td>
+                    <td>${request.status}</td>
+                    <td>${request.commitmentDate}</td>
+                    <td>
+                        <button onclick="editRequest(${index})">Edit</button>
+                        <button onclick="deleteRequest(${index})">Delete</button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Edit request
+        function editRequest(index) {
+            const request = requests[index];
+            // Populate form with existing data
+            document.getElementById('mrsNumber').value = request.mrsNumber;
+            document.getElementById('dateRequested').value = request.dateRequested;
+            document.getElementById('materials').value = request.materials;
+            document.getElementById('purpose').value = request.purpose;
+            document.getElementById('status').value = request.status;
+            document.getElementById('commitmentDate').value = request.commitmentDate;
+            
+            // Remove the old entry
+            requests.splice(index, 1);
+            updateTable();
+        }
+        
+        // Delete request
+        function deleteRequest(index) {
+            if (confirm('Are you sure you want to delete this request?')) {
+                requests.splice(index, 1);
+                updateTable();
+            }
+        }
+        
+        // Export to Excel (XLSX)
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            // Prepare worksheet data
+            const wsData = [
+                ["MRS #", "Date Requested", "Requested Materials", "Purpose", "Status", "Purchasing Commitment Date"],
+                ...requests.map(request => [
+                    request.mrsNumber,
+                    request.dateRequested,
+                    request.materials,
+                    request.purpose,
+                    request.status,
+                    request.commitmentDate
+                ])
+            ];
+            
+            // Create worksheet
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Material Requests");
+            
+            // Generate XLSX file and download
+            XLSX.writeFile(wb, "Material_Monitoring.xlsx", {
+                bookType: 'xlsx',
+                type: 'array'
+            });
+        });
+        
+        // Import from Excel with duplicate prevention
+        document.getElementById('importBtn').addEventListener('click', function() {
+            const fileInput = document.getElementById('excelUpload');
+            const file = fileInput.files[0];
+            const replaceData = document.getElementById('replaceData').checked;
+            
+            if (!file) {
+                document.getElementById('importStatus').textContent = "Please select an Excel file first.";
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Get first worksheet
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    if (jsonData.length === 0) {
+                        document.getElementById('importStatus').textContent = "No data found in the Excel file.";
+                        return;
+                    }
+                    
+                    let newRequests = [];
+                    let duplicatesFound = 0;
+                    let importedCount = 0;
+                    
+                    // Process each row
+                    jsonData.forEach(row => {
+                        const mrsNumber = row['MRS #'] || row['mrsNumber'] || '';
+                        
+                        // Skip if MRS # is empty or already exists (unless replacing)
+                        if (!mrsNumber || (!replaceData && isDuplicateMrsNumber(mrsNumber))) {
+                            duplicatesFound++;
+                            return;
+                        }
+                        
+                        const newRequest = {
+                            mrsNumber: mrsNumber,
+                            dateRequested: formatExcelDate(row['Date Requested'] || row['dateRequested']),
+                            materials: row['Requested Materials'] || row['materials'] || '',
+                            purpose: row['Purpose'] || row['purpose'] || '',
+                            status: row['Status'] || row['status'] || 'Pending',
+                            commitmentDate: formatExcelDate(row['Purchasing Commitment Date'] || row['commitmentDate'])
+                        };
+                        
+                        newRequests.push(newRequest);
+                        importedCount++;
+                    });
+                    
+                    // Replace all data if checkbox is checked
+                    if (replaceData) {
+                        requests = newRequests;
+                    } else {
+                        requests = [...requests, ...newRequests];
+                    }
+                    
+                    updateTable();
+                    
+                    let statusMessage = `Successfully imported ${importedCount} records.`;
+                    if (duplicatesFound > 0) {
+                        statusMessage += ` ${duplicatesFound} duplicates were skipped.`;
+                    }
+                    document.getElementById('importStatus').textContent = statusMessage;
+                    fileInput.value = ''; // Clear file input
+                    
+                } catch (error) {
+                    document.getElementById('importStatus').textContent = "Error processing file: " + error.message;
+                    console.error(error);
+                }
+            };
+            
+            reader.onerror = function() {
+                document.getElementById('importStatus').textContent = "Error reading file.";
+            };
+            
+            reader.readAsArrayBuffer(file);
+        });
+        
+        // Helper function to format Excel dates (numbers) to YYYY-MM-DD
+        function formatExcelDate(excelDate) {
+            if (!excelDate) return '';
+            
+            // If it's already in date string format
+            if (typeof excelDate === 'string') {
+                // Try to parse as ISO date (YYYY-MM-DD)
+                if (/^\d{4}-\d{2}-\d{2}$/.test(excelDate)) {
+                    return excelDate;
+                }
+                // Try to parse other date formats if needed
+            }
+            
+            // If it's an Excel serial date number
+            if (typeof excelDate === 'number') {
+                const date = new Date((excelDate - (25567 + 1)) * 86400 * 1000);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+            
+            return '';
+        }
+    </script>
+</body>
+</html>
